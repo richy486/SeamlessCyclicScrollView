@@ -9,13 +9,17 @@
 #import "SCSVCollectionViewController.h"
 #import "SCSVCollectionViewCell.h"
 
-@interface SCSVCollectionViewController ()
+@interface SCSVCollectionViewController () {
+    CGFloat _lastContentOffsetX;
+    NSInteger _loopCount;
+}
 
 @property (weak, nonatomic) IBOutlet UICollectionViewFlowLayout *collectionViewFlowLayout;
 
 @property (strong, nonatomic) NSArray *dataSource;// data source
 
 @property (strong, nonatomic) NSIndexPath *indexPathForDeviceOrientation;// for move to the right position after orientation
+
 
 @end
 
@@ -25,6 +29,9 @@ static NSString * const reuseIdentifier = @"SCSVReusableID";
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    
+    _lastContentOffsetX = FLT_MIN;
+    _loopCount = 0;
     
     // data source
     _dataSource = @[@1, @2, @3];
@@ -88,7 +95,9 @@ static NSString * const reuseIdentifier = @"SCSVReusableID";
 - (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath {
     SCSVCollectionViewCell *cell = (SCSVCollectionViewCell *)[collectionView dequeueReusableCellWithReuseIdentifier:reuseIdentifier forIndexPath:indexPath];
     
-    cell.label.text = [@"Page " stringByAppendingString:[_dataSource[indexPath.item] stringValue]];
+    cell.label.text = [NSString stringWithFormat:@"Page %ld (%ld)"
+                       , (long)([_dataSource[indexPath.item] integerValue] + (_loopCount * 3))
+                       , (long)[_dataSource[indexPath.item] integerValue]];
     
     return cell;
 }
@@ -97,12 +106,11 @@ static NSString * const reuseIdentifier = @"SCSVReusableID";
 #pragma mark - <UIScrollViewDelegate>
 
 - (void) scrollViewDidScroll:(UIScrollView *)scrollView {
-    static CGFloat lastContentOffsetX = FLT_MIN;
     
     // We can ignore the first time scroll,
     // because it is caused by the call scrollToItemAtIndexPath: in ViewWillAppear
-    if (FLT_MIN == lastContentOffsetX) {
-        lastContentOffsetX = scrollView.contentOffset.x;
+    if (FLT_MIN == _lastContentOffsetX) {
+        _lastContentOffsetX = scrollView.contentOffset.x;
         return;
     }
     
@@ -113,16 +121,18 @@ static NSString * const reuseIdentifier = @"SCSVReusableID";
     CGFloat offset = pageWidth * (_dataSource.count - 2);
     
     // the first page(showing the last item) is visible and user's finger is still scrolling to the right
-    if (currentOffsetX < pageWidth && lastContentOffsetX > currentOffsetX) {
-        lastContentOffsetX = currentOffsetX + offset;
-        scrollView.contentOffset = (CGPoint){lastContentOffsetX, currentOffsetY};
+    if (currentOffsetX < pageWidth && _lastContentOffsetX > currentOffsetX) {
+        _lastContentOffsetX = currentOffsetX + offset;
+        scrollView.contentOffset = (CGPoint){_lastContentOffsetX, currentOffsetY};
+        _loopCount -= 1;
     }
     // the last page (showing the first item) is visible and the user's finger is still scrolling to the left
-    else if (currentOffsetX > offset && lastContentOffsetX < currentOffsetX) {
-        lastContentOffsetX = currentOffsetX - offset;
-        scrollView.contentOffset = (CGPoint){lastContentOffsetX, currentOffsetY};
+    else if (currentOffsetX > offset && _lastContentOffsetX < currentOffsetX) {
+        _lastContentOffsetX = currentOffsetX - offset;
+        scrollView.contentOffset = (CGPoint){_lastContentOffsetX, currentOffsetY};
+        _loopCount += 1;
     } else {
-        lastContentOffsetX = currentOffsetX;
+        _lastContentOffsetX = currentOffsetX;
     }
 }
 
